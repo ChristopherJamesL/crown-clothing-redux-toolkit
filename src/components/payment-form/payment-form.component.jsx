@@ -16,40 +16,51 @@ const PaymentForm = () => {
     const [isProcessingPayment, setIsProcessingPayment] = useState(false);
     
     const paymentHandler = async (e) => {
-        console.log('current user: ', currentUser)
         e.preventDefault();
 
         if (!stripe || !elements) return;
 
         setIsProcessingPayment(true);
 
-        const response = await fetch('/.netlify/functions/create-payment-intent', {
-            method: 'post',
-            headers: {
-                "Content-Type": 'application/json',
-            },
-            body: JSON.stringify({ amount: amount * 100 })
-        }).then(res => res.json());
-
-        const { paymentIntent: { client_secret } } = response;
-
-        const paymentResult = await stripe.confirmCardPayment(client_secret, {
-            payment_method: {
-                card: elements.getElement(CardElement),
-                billing_details: {
-                    name: currentUser ? currentUser.displayName : 'Guest',
+        try {
+            const response = await fetch('/.netlify/functions/create-payment-intent', {
+                method: 'post',
+                headers: {
+                    "Content-Type": 'application/json',
+                },
+                body: JSON.stringify({ amount: amount * 100 })
+            }).then(res => res.json());
+    
+            const { paymentIntent: { client_secret } } = response;
+    
+            const cardElement = elements.getElement(CardElement);
+            if (!cardElement || !cardElement._complete) {
+                alert('Please fill in valid card details.');
+                setIsProcessingPayment(false);
+                return;
+            }
+    
+            const paymentResult = await stripe.confirmCardPayment(client_secret, {
+                payment_method: {
+                    card: elements.getElement(CardElement),
+                    billing_details: {
+                        name: currentUser?.displayName ?? 'Guest',
+                    }
+                }
+            });
+    
+            if (paymentResult.error) {
+                alert(paymentResult.error)
+            } else {
+                if (paymentResult.paymentIntent.status === 'succeeded') {
+                    alert('Payment Successful');
                 }
             }
-        });
 
-        setIsProcessingPayment(false);
-
-        if (paymentResult.error) {
-            alert(paymentResult.error)
-        } else {
-            if (paymentResult.paymentIntent.status === 'succeeded') {
-                alert('Payment Successful');
-            }
+        } catch (error) {
+            alert('An unexpected error occured.  Please try again.')
+        } finally {
+            setIsProcessingPayment(false);
         }
     };
 

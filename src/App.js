@@ -3,34 +3,41 @@ import { useDispatch } from 'react-redux';
 
 import { Routes, Route } from 'react-router-dom';
 
+import { setCurrentUser } from './store/user/user.reducer';
 import {
   onAuthStateChangedListener,
   createUserDocumentFromAuth,
 } from './utils/firebase/firebase.utils';
+
 import Home from './routes/home/home.component';
 import Navigation from './routes/navigation/navigation.component';
 import Authentication from './routes/authentication/authentication.component';
 import Shop from './routes/shop/shop.component';
 import Checkout from './routes/checkout/checkout.component';
-import { setCurrentUser } from './store/user/user.reducer';
 
 const App = () => {
   const dispatch = useDispatch();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChangedListener((user) => {
+    const unsubscribe = onAuthStateChangedListener(async (user) => {
       if (user) {
-        createUserDocumentFromAuth(user);
+        const userSnapshot = await createUserDocumentFromAuth(user);
+        const userData = userSnapshot.data(); // Get user data from Firestore
+        
+        const pickedUser = 
+          user && (({ accessToken, email }) => ({ 
+            accessToken, 
+            email, displayName: userData.displayName || user.displayName
+          }))(user);
+
+        dispatch(setCurrentUser(pickedUser));
+      } else {
+        dispatch(setCurrentUser(null)); // No user signed in
       }
-      const pickedUser = 
-        user && (({ accessToken, email }) => ({ accessToken, email }))(user);
-
-      console.log(setCurrentUser(user));
-      dispatch(setCurrentUser(pickedUser));
     });
-
+  
     return unsubscribe;
-  }, []);
+  }, [dispatch]);
 
   return (
     <Routes>
